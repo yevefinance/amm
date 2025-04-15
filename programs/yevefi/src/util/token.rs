@@ -1,13 +1,13 @@
 use crate::state::{PositionBundle, Yevefi};
 use anchor_lang::prelude::*;
+use anchor_spl::metadata::{self, mpl_token_metadata::types::DataV2, CreateMetadataAccountsV3};
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
-use anchor_spl::metadata::{self, CreateMetadataAccountsV3, mpl_token_metadata::types::DataV2};
 use solana_program::program::invoke_signed;
 use spl_token::instruction::{burn_checked, close_account, mint_to, set_authority, AuthorityType};
 
 use crate::constants::nft::{
-    WPB_METADATA_NAME_PREFIX, WPB_METADATA_SYMBOL, WPB_METADATA_URI, WP_METADATA_NAME,
-    WP_METADATA_SYMBOL, WP_METADATA_URI,
+    TK_METADATA_NAME, TK_METADATA_SYMBOL, TK_METADATA_URI, WPB_METADATA_NAME_PREFIX,
+    WPB_METADATA_SYMBOL, WPB_METADATA_URI,
 };
 
 pub fn transfer_from_owner_to_vault<'info>(
@@ -104,15 +104,11 @@ pub fn mint_position_token_and_remove_authority<'info>(
     position_token_account: &Account<'info, TokenAccount>,
     token_program: &Program<'info, Token>,
 ) -> Result<()> {
-    mint_position_token(
-        yevefi,
-        position_mint,
-        position_token_account,
-        token_program,
-    )?;
+    mint_position_token(yevefi, position_mint, position_token_account, token_program)?;
     remove_position_token_mint_authority(yevefi, position_mint, token_program)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn mint_position_token_with_metadata_and_remove_authority<'info>(
     yevefi: &Account<'info, Yevefi>,
     position_mint: &Account<'info, Mint>,
@@ -125,12 +121,7 @@ pub fn mint_position_token_with_metadata_and_remove_authority<'info>(
     system_program: &Program<'info, System>,
     rent: &Sysvar<'info, Rent>,
 ) -> Result<()> {
-    mint_position_token(
-        yevefi,
-        position_mint,
-        position_token_account,
-        token_program,
-    )?;
+    mint_position_token(yevefi, position_mint, position_token_account, token_program)?;
 
     let metadata_mint_auth_account = yevefi;
     metadata::create_metadata_accounts_v3(
@@ -148,17 +139,17 @@ pub fn mint_position_token_with_metadata_and_remove_authority<'info>(
             &[&metadata_mint_auth_account.seeds()],
         ),
         DataV2 {
-            name: WP_METADATA_NAME.to_string(),
-            symbol: WP_METADATA_SYMBOL.to_string(),
-            uri: WP_METADATA_URI.to_string(),
+            name: TK_METADATA_NAME.to_string(),
+            symbol: TK_METADATA_SYMBOL.to_string(),
+            uri: TK_METADATA_URI.to_string(),
             creators: None,
             seller_fee_basis_points: 0,
             collection: None,
-            uses: None
+            uses: None,
         },
         true,
         false,
-        None
+        None,
     )?;
 
     remove_position_token_mint_authority(yevefi, position_mint, token_program)
@@ -236,6 +227,7 @@ pub fn mint_position_bundle_token_and_remove_authority<'info>(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn mint_position_bundle_token_with_metadata_and_remove_authority<'info>(
     funder: &Signer<'info>,
     position_bundle: &Account<'info, PositionBundle>,
@@ -288,11 +280,11 @@ pub fn mint_position_bundle_token_with_metadata_and_remove_authority<'info>(
             creators: None,
             seller_fee_basis_points: 0,
             collection: None,
-            uses: None
+            uses: None,
         },
         true,
         false,
-        None
+        None,
     )?;
 
     remove_position_bundle_token_mint_authority(

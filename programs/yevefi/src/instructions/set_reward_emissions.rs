@@ -39,10 +39,10 @@ pub fn handler(
     let timestamp = to_timestamp_u64(clock.unix_timestamp)?;
     let next_reward_infos = next_yevefi_reward_infos(yevefi, timestamp)?;
 
-    Ok(ctx.accounts.yevefi.update_emissions(
+    ctx.accounts.yevefi.update_emissions(
         reward_index as usize,
         next_reward_infos,
         timestamp,
         emissions_per_second_x64,
-    )?)
+    )
 }

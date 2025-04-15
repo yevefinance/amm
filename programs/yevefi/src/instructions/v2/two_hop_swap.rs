@@ -1,14 +1,17 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use anchor_spl::memo::Memo;
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::swap_with_transfer_fee_extension;
-use crate::util::{calculate_transfer_fee_excluded_amount, parse_remaining_accounts, update_and_two_hop_swap_yevefi_v2, AccountsType, RemainingAccountsInfo};
+use crate::util::{
+    calculate_transfer_fee_excluded_amount, parse_remaining_accounts,
+    update_and_two_hop_swap_yevefi_v2, AccountsType, RemainingAccountsInfo,
+};
 use crate::{
-    errors::ErrorCode,
-    state::{TickArray, Yevefi},
-    util::{to_timestamp_u64, SwapTickSequence},
     constants::transfer_memo,
+    errors::ErrorCode,
+    state::Yevefi,
+    util::{to_timestamp_u64, SparseSwapTickSequenceBuilder},
 };
 
 #[derive(Accounts)]
@@ -26,17 +29,17 @@ pub struct TwoHopSwapV2<'info> {
     pub yevefi_two: Box<Account<'info, Yevefi>>,
 
     #[account(address = yevefi_one.input_token_mint(a_to_b_one))]
-    pub token_mint_input: InterfaceAccount<'info, Mint>,    
+    pub token_mint_input: InterfaceAccount<'info, Mint>,
     #[account(address = yevefi_one.output_token_mint(a_to_b_one))]
     pub token_mint_intermediate: InterfaceAccount<'info, Mint>,
     #[account(address = yevefi_two.output_token_mint(a_to_b_two))]
     pub token_mint_output: InterfaceAccount<'info, Mint>,
 
-    #[account(address = token_mint_input.to_account_info().owner.clone())]
+    #[account(address = *token_mint_input.to_account_info().owner)]
     pub token_program_input: Interface<'info, TokenInterface>,
-    #[account(address = token_mint_intermediate.to_account_info().owner.clone())]
+    #[account(address = *token_mint_intermediate.to_account_info().owner)]
     pub token_program_intermediate: Interface<'info, TokenInterface>,
-    #[account(address = token_mint_output.to_account_info().owner.clone())]
+    #[account(address = *token_mint_output.to_account_info().owner)]
     pub token_program_output: Interface<'info, TokenInterface>,
 
     #[account(mut, constraint = token_owner_account_input.mint == token_mint_input.key())]
@@ -55,23 +58,29 @@ pub struct TwoHopSwapV2<'info> {
 
     pub token_authority: Signer<'info>,
 
-    #[account(mut, constraint = tick_array_one_0.load()?.yevefi == yevefi_one.key())]
-    pub tick_array_one_0: AccountLoader<'info, TickArray>,
+    #[account(mut)]
+    /// CHECK: checked in the handler
+    pub tick_array_one_0: UncheckedAccount<'info>,
 
-    #[account(mut, constraint = tick_array_one_1.load()?.yevefi == yevefi_one.key())]
-    pub tick_array_one_1: AccountLoader<'info, TickArray>,
+    #[account(mut)]
+    /// CHECK: checked in the handler
+    pub tick_array_one_1: UncheckedAccount<'info>,
 
-    #[account(mut, constraint = tick_array_one_2.load()?.yevefi == yevefi_one.key())]
-    pub tick_array_one_2: AccountLoader<'info, TickArray>,
+    #[account(mut)]
+    /// CHECK: checked in the handler
+    pub tick_array_one_2: UncheckedAccount<'info>,
 
-    #[account(mut, constraint = tick_array_two_0.load()?.yevefi == yevefi_two.key())]
-    pub tick_array_two_0: AccountLoader<'info, TickArray>,
+    #[account(mut)]
+    /// CHECK: checked in the handler
+    pub tick_array_two_0: UncheckedAccount<'info>,
 
-    #[account(mut, constraint = tick_array_two_1.load()?.yevefi == yevefi_two.key())]
-    pub tick_array_two_1: AccountLoader<'info, TickArray>,
+    #[account(mut)]
+    /// CHECK: checked in the handler
+    pub tick_array_two_1: UncheckedAccount<'info>,
 
-    #[account(mut, constraint = tick_array_two_2.load()?.yevefi == yevefi_two.key())]
-    pub tick_array_two_2: AccountLoader<'info, TickArray>,
+    #[account(mut)]
+    /// CHECK: checked in the handler
+    pub tick_array_two_2: UncheckedAccount<'info>,
 
     #[account(mut, seeds = [b"oracle", yevefi_one.key().as_ref()], bump)]
     /// CHECK: Oracle is currently unused and will be enabled on subsequent updates
@@ -82,15 +91,17 @@ pub struct TwoHopSwapV2<'info> {
     pub oracle_two: UncheckedAccount<'info>,
 
     pub memo_program: Program<'info, Memo>,
-
     // remaining accounts
     // - accounts for transfer hook program of token_mint_input
     // - accounts for transfer hook program of token_mint_intermediate
     // - accounts for transfer hook program of token_mint_output
+    // - supplemental TickArray accounts for yevefi_one
+    // - supplemental TickArray accounts for yevefi_two
 }
 
-pub fn handler<'a, 'b, 'c, 'info>(
-    ctx: Context<'a, 'b, 'c, 'info, TwoHopSwapV2<'info>>,
+#[allow(clippy::too_many_arguments)]
+pub fn handler<'info>(
+    ctx: Context<'_, '_, '_, 'info, TwoHopSwapV2<'info>>,
     amount: u64,
     other_amount_threshold: u64,
     amount_specified_is_input: bool,
@@ -129,26 +140,40 @@ pub fn handler<'a, 'b, 'c, 'info>(
 
     // Process remaining accounts
     let remaining_accounts = parse_remaining_accounts(
-        &ctx.remaining_accounts,
+        ctx.remaining_accounts,
         &remaining_accounts_info,
         &[
             AccountsType::TransferHookInput,
             AccountsType::TransferHookIntermediate,
             AccountsType::TransferHookOutput,
+            AccountsType::SupplementalTickArraysOne,
+            AccountsType::SupplementalTickArraysTwo,
         ],
     )?;
 
-    let mut swap_tick_sequence_one = SwapTickSequence::new(
-        ctx.accounts.tick_array_one_0.load_mut().unwrap(),
-        ctx.accounts.tick_array_one_1.load_mut().ok(),
-        ctx.accounts.tick_array_one_2.load_mut().ok(),
-    );
+    let builder_one = SparseSwapTickSequenceBuilder::try_from(
+        yevefi_one,
+        a_to_b_one,
+        vec![
+            ctx.accounts.tick_array_one_0.to_account_info(),
+            ctx.accounts.tick_array_one_1.to_account_info(),
+            ctx.accounts.tick_array_one_2.to_account_info(),
+        ],
+        remaining_accounts.supplemental_tick_arrays_one,
+    )?;
+    let mut swap_tick_sequence_one = builder_one.build()?;
 
-    let mut swap_tick_sequence_two = SwapTickSequence::new(
-        ctx.accounts.tick_array_two_0.load_mut().unwrap(),
-        ctx.accounts.tick_array_two_1.load_mut().ok(),
-        ctx.accounts.tick_array_two_2.load_mut().ok(),
-    );
+    let builder_two = SparseSwapTickSequenceBuilder::try_from(
+        yevefi_two,
+        a_to_b_two,
+        vec![
+            ctx.accounts.tick_array_two_0.to_account_info(),
+            ctx.accounts.tick_array_two_1.to_account_info(),
+            ctx.accounts.tick_array_two_2.to_account_info(),
+        ],
+        remaining_accounts.supplemental_tick_arrays_two,
+    )?;
+    let mut swap_tick_sequence_two = builder_two.build()?;
 
     // TODO: WLOG, we could extend this to N-swaps, but the account inputs to the instruction would
     // need to be jankier and we may need to programatically map/verify rather than using anchor constraints
@@ -157,9 +182,17 @@ pub fn handler<'a, 'b, 'c, 'info>(
         // and the swap calculations occur from Swap 1 => Swap 2
         // and the swaps occur from Swap 1 => Swap 2
         let swap_calc_one = swap_with_transfer_fee_extension(
-            &yevefi_one,
-            if a_to_b_one { &ctx.accounts.token_mint_input } else { &ctx.accounts.token_mint_intermediate },
-            if a_to_b_one { &ctx.accounts.token_mint_intermediate } else { &ctx.accounts.token_mint_input },
+            yevefi_one,
+            if a_to_b_one {
+                &ctx.accounts.token_mint_input
+            } else {
+                &ctx.accounts.token_mint_intermediate
+            },
+            if a_to_b_one {
+                &ctx.accounts.token_mint_intermediate
+            } else {
+                &ctx.accounts.token_mint_input
+            },
             &mut swap_tick_sequence_one,
             amount,
             sqrt_price_limit_one,
@@ -177,9 +210,17 @@ pub fn handler<'a, 'b, 'c, 'info>(
         };
 
         let swap_calc_two = swap_with_transfer_fee_extension(
-            &yevefi_two,
-            if a_to_b_two { &ctx.accounts.token_mint_intermediate } else { &ctx.accounts.token_mint_output },
-            if a_to_b_two { &ctx.accounts.token_mint_output } else { &ctx.accounts.token_mint_intermediate },
+            yevefi_two,
+            if a_to_b_two {
+                &ctx.accounts.token_mint_intermediate
+            } else {
+                &ctx.accounts.token_mint_output
+            },
+            if a_to_b_two {
+                &ctx.accounts.token_mint_output
+            } else {
+                &ctx.accounts.token_mint_intermediate
+            },
             &mut swap_tick_sequence_two,
             swap_two_input_amount,
             sqrt_price_limit_two,
@@ -193,9 +234,17 @@ pub fn handler<'a, 'b, 'c, 'info>(
         // and the swap calculations occur from Swap 2 => Swap 1
         // but the actual swaps occur from Swap 1 => Swap 2 (to ensure that the intermediate token exists in the account)
         let swap_calc_two = swap_with_transfer_fee_extension(
-            &yevefi_two,
-            if a_to_b_two { &ctx.accounts.token_mint_intermediate } else { &ctx.accounts.token_mint_output },
-            if a_to_b_two { &ctx.accounts.token_mint_output } else { &ctx.accounts.token_mint_intermediate },
+            yevefi_two,
+            if a_to_b_two {
+                &ctx.accounts.token_mint_intermediate
+            } else {
+                &ctx.accounts.token_mint_output
+            },
+            if a_to_b_two {
+                &ctx.accounts.token_mint_output
+            } else {
+                &ctx.accounts.token_mint_intermediate
+            },
             &mut swap_tick_sequence_two,
             amount,
             sqrt_price_limit_two,
@@ -208,19 +257,29 @@ pub fn handler<'a, 'b, 'c, 'info>(
         let swap_one_output_amount = if a_to_b_two {
             calculate_transfer_fee_excluded_amount(
                 &ctx.accounts.token_mint_intermediate,
-                swap_calc_two.amount_a
-            )?.amount
+                swap_calc_two.amount_a,
+            )?
+            .amount
         } else {
             calculate_transfer_fee_excluded_amount(
                 &ctx.accounts.token_mint_intermediate,
-                swap_calc_two.amount_b
-            )?.amount
+                swap_calc_two.amount_b,
+            )?
+            .amount
         };
 
         let swap_calc_one = swap_with_transfer_fee_extension(
-            &yevefi_one,
-            if a_to_b_one { &ctx.accounts.token_mint_input } else { &ctx.accounts.token_mint_intermediate },
-            if a_to_b_one { &ctx.accounts.token_mint_intermediate } else { &ctx.accounts.token_mint_input },
+            yevefi_one,
+            if a_to_b_one {
+                &ctx.accounts.token_mint_input
+            } else {
+                &ctx.accounts.token_mint_intermediate
+            },
+            if a_to_b_one {
+                &ctx.accounts.token_mint_intermediate
+            } else {
+                &ctx.accounts.token_mint_input
+            },
             &mut swap_tick_sequence_one,
             swap_one_output_amount,
             sqrt_price_limit_one,
@@ -232,8 +291,16 @@ pub fn handler<'a, 'b, 'c, 'info>(
     };
 
     // All output token should be consumed by the second swap
-    let swap_calc_one_output = if a_to_b_one { swap_update_one.amount_b } else { swap_update_one.amount_a };
-    let swap_calc_two_input = if a_to_b_two { swap_update_two.amount_a } else { swap_update_two.amount_b };
+    let swap_calc_one_output = if a_to_b_one {
+        swap_update_one.amount_b
+    } else {
+        swap_update_one.amount_a
+    };
+    let swap_calc_two_input = if a_to_b_two {
+        swap_update_two.amount_a
+    } else {
+        swap_update_two.amount_b
+    };
     if swap_calc_one_output != swap_calc_two_input {
         return Err(ErrorCode::IntermediateTokenAmountMismatch.into());
     }
@@ -244,13 +311,15 @@ pub fn handler<'a, 'b, 'c, 'info>(
         let output_amount = if a_to_b_two {
             calculate_transfer_fee_excluded_amount(
                 &ctx.accounts.token_mint_output,
-                swap_update_two.amount_b
-            )?.amount
+                swap_update_two.amount_b,
+            )?
+            .amount
         } else {
             calculate_transfer_fee_excluded_amount(
                 &ctx.accounts.token_mint_output,
-                swap_update_two.amount_a
-            )?.amount
+                swap_update_two.amount_a,
+            )?
+            .amount
         };
 
         // If we have received less than the minimum out, throw an error
@@ -270,7 +339,7 @@ pub fn handler<'a, 'b, 'c, 'info>(
         }
     }
 
-    /* 
+    /*
     update_and_swap_yevefi_v2(
         yevefi_one,
         &ctx.accounts.token_authority,

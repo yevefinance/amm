@@ -1,7 +1,6 @@
-//! A concentrated liquidity AMM contract powered by Orca.
 use anchor_lang::prelude::*;
 
-declare_id!("EdG4rQqC9LCY4MQWLGXerQ7h1LknKRmSiHL1upCNEdqD");
+declare_id!("9Tde8mGGcYpKtECAubWKcGTWFhr1nCoE7NMvMwFpfFvN");
 
 #[doc(hidden)]
 pub mod constants;
@@ -13,11 +12,11 @@ pub mod instructions;
 pub mod manager;
 #[doc(hidden)]
 pub mod math;
+#[doc(hidden)]
+pub mod security;
 pub mod state;
 #[doc(hidden)]
 pub mod util;
-#[doc(hidden)]
-pub mod security;
 
 use crate::state::{OpenPositionBumps, OpenPositionWithMetadataBumps, YevefiBumps};
 use crate::util::RemainingAccountsInfo;
@@ -41,13 +40,13 @@ pub mod yevefi {
         reward_emissions_super_authority: Pubkey,
         default_protocol_fee_rate: u16,
     ) -> Result<()> {
-        return instructions::initialize_config::handler(
+        instructions::initialize_config::handler(
             ctx,
             fee_authority,
             collect_protocol_fees_authority,
             reward_emissions_super_authority,
             default_protocol_fee_rate,
-        );
+        )
     }
 
     /// Initializes a Yevefi account.
@@ -68,12 +67,7 @@ pub mod yevefi {
         tick_spacing: u16,
         initial_sqrt_price: u128,
     ) -> Result<()> {
-        return instructions::initialize_pool::handler(
-            ctx,
-            bumps,
-            tick_spacing,
-            initial_sqrt_price,
-        );
+        instructions::initialize_pool::handler(ctx, bumps, tick_spacing, initial_sqrt_price)
     }
 
     /// Initializes a tick_array account to represent a tick-range in a Yevefi.
@@ -89,7 +83,7 @@ pub mod yevefi {
         ctx: Context<InitializeTickArray>,
         start_tick_index: i32,
     ) -> Result<()> {
-        return instructions::initialize_tick_array::handler(ctx, start_tick_index);
+        instructions::initialize_tick_array::handler(ctx, start_tick_index)
     }
 
     /// Initializes a fee_tier account usable by Yevefis in a YevefiConfig space.
@@ -109,7 +103,7 @@ pub mod yevefi {
         tick_spacing: u16,
         default_fee_rate: u16,
     ) -> Result<()> {
-        return instructions::initialize_fee_tier::handler(ctx, tick_spacing, default_fee_rate);
+        instructions::initialize_fee_tier::handler(ctx, tick_spacing, default_fee_rate)
     }
 
     /// Initialize reward for a Yevefi. A pool can only support up to a set number of rewards.
@@ -126,7 +120,7 @@ pub mod yevefi {
     ///                          index in this pool, or exceeds NUM_REWARDS, or
     ///                          all reward slots for this pool has been initialized.
     pub fn initialize_reward(ctx: Context<InitializeReward>, reward_index: u8) -> Result<()> {
-        return instructions::initialize_reward::handler(ctx, reward_index);
+        instructions::initialize_reward::handler(ctx, reward_index)
     }
 
     /// Set the reward emissions for a reward in a Yevefi.
@@ -151,11 +145,7 @@ pub mod yevefi {
         reward_index: u8,
         emissions_per_second_x64: u128,
     ) -> Result<()> {
-        return instructions::set_reward_emissions::handler(
-            ctx,
-            reward_index,
-            emissions_per_second_x64,
-        );
+        instructions::set_reward_emissions::handler(ctx, reward_index, emissions_per_second_x64)
     }
 
     /// Open a position in a Yevefi. A unique token will be minted to represent the position
@@ -174,12 +164,7 @@ pub mod yevefi {
         tick_lower_index: i32,
         tick_upper_index: i32,
     ) -> Result<()> {
-        return instructions::open_position::handler(
-            ctx,
-            bumps,
-            tick_lower_index,
-            tick_upper_index,
-        );
+        instructions::open_position::handler(ctx, bumps, tick_lower_index, tick_upper_index)
     }
 
     /// Open a position in a Yevefi. A unique token will be minted to represent the position
@@ -199,12 +184,12 @@ pub mod yevefi {
         tick_lower_index: i32,
         tick_upper_index: i32,
     ) -> Result<()> {
-        return instructions::open_position_with_metadata::handler(
+        instructions::open_position_with_metadata::handler(
             ctx,
             bumps,
             tick_lower_index,
             tick_upper_index,
-        );
+        )
     }
 
     /// Add liquidity to a position in the Yevefi. This call also updates the position's accrued fees and rewards.
@@ -227,12 +212,7 @@ pub mod yevefi {
         token_max_a: u64,
         token_max_b: u64,
     ) -> Result<()> {
-        return instructions::increase_liquidity::handler(
-            ctx,
-            liquidity_amount,
-            token_max_a,
-            token_max_b,
-        );
+        instructions::increase_liquidity::handler(ctx, liquidity_amount, token_max_a, token_max_b)
     }
 
     /// Withdraw liquidity from a position in the Yevefi. This call also updates the position's accrued fees and rewards.
@@ -255,12 +235,7 @@ pub mod yevefi {
         token_min_a: u64,
         token_min_b: u64,
     ) -> Result<()> {
-        return instructions::decrease_liquidity::handler(
-            ctx,
-            liquidity_amount,
-            token_min_a,
-            token_min_b,
-        );
+        instructions::decrease_liquidity::handler(ctx, liquidity_amount, token_min_a, token_min_b)
     }
 
     /// Update the accrued fees and rewards for a position.
@@ -269,7 +244,7 @@ pub mod yevefi {
     /// - `TickNotFound` - Provided tick array account does not contain the tick for this position.
     /// - `LiquidityZero` - Position has zero liquidity and therefore already has the most updated fees and reward values.
     pub fn update_fees_and_rewards(ctx: Context<UpdateFeesAndRewards>) -> Result<()> {
-        return instructions::update_fees_and_rewards::handler(ctx);
+        instructions::update_fees_and_rewards::handler(ctx)
     }
 
     /// Collect fees accrued for this position.
@@ -277,7 +252,7 @@ pub mod yevefi {
     /// ### Authority
     /// - `position_authority` - authority that owns the token corresponding to this desired position.
     pub fn collect_fees(ctx: Context<CollectFees>) -> Result<()> {
-        return instructions::collect_fees::handler(ctx);
+        instructions::collect_fees::handler(ctx)
     }
 
     /// Collect rewards accrued for this position.
@@ -285,7 +260,7 @@ pub mod yevefi {
     /// ### Authority
     /// - `position_authority` - authority that owns the token corresponding to this desired position.
     pub fn collect_reward(ctx: Context<CollectReward>, reward_index: u8) -> Result<()> {
-        return instructions::collect_reward::handler(ctx, reward_index);
+        instructions::collect_reward::handler(ctx, reward_index)
     }
 
     /// Collect the protocol fees accrued in this Yevefi
@@ -293,7 +268,7 @@ pub mod yevefi {
     /// ### Authority
     /// - `collect_protocol_fees_authority` - assigned authority in the YevefiConfig that can collect protocol fees
     pub fn collect_protocol_fees(ctx: Context<CollectProtocolFees>) -> Result<()> {
-        return instructions::collect_protocol_fees::handler(ctx);
+        instructions::collect_protocol_fees::handler(ctx)
     }
 
     /// Perform a swap in this Yevefi
@@ -325,14 +300,14 @@ pub mod yevefi {
         amount_specified_is_input: bool,
         a_to_b: bool,
     ) -> Result<()> {
-        return instructions::swap::handler(
+        instructions::swap::handler(
             ctx,
             amount,
             other_amount_threshold,
             sqrt_price_limit,
             amount_specified_is_input,
             a_to_b,
-        );
+        )
     }
 
     /// Close a position in a Yevefi. Burns the position token in the owner's wallet.
@@ -343,7 +318,7 @@ pub mod yevefi {
     /// #### Special Errors
     /// - `ClosePositionNotEmpty` - The provided position account is not empty.
     pub fn close_position(ctx: Context<ClosePosition>) -> Result<()> {
-        return instructions::close_position::handler(ctx);
+        instructions::close_position::handler(ctx)
     }
 
     /// Set the default_fee_rate for a FeeTier
@@ -362,7 +337,7 @@ pub mod yevefi {
         ctx: Context<SetDefaultFeeRate>,
         default_fee_rate: u16,
     ) -> Result<()> {
-        return instructions::set_default_fee_rate::handler(ctx, default_fee_rate);
+        instructions::set_default_fee_rate::handler(ctx, default_fee_rate)
     }
 
     /// Sets the default protocol fee rate for a YevefiConfig
@@ -381,10 +356,7 @@ pub mod yevefi {
         ctx: Context<SetDefaultProtocolFeeRate>,
         default_protocol_fee_rate: u16,
     ) -> Result<()> {
-        return instructions::set_default_protocol_fee_rate::handler(
-            ctx,
-            default_protocol_fee_rate,
-        );
+        instructions::set_default_protocol_fee_rate::handler(ctx, default_protocol_fee_rate)
     }
 
     /// Sets the fee rate for a Yevefi.
@@ -400,7 +372,7 @@ pub mod yevefi {
     /// #### Special Errors
     /// - `FeeRateMaxExceeded` - If the provided fee_rate exceeds MAX_FEE_RATE.
     pub fn set_fee_rate(ctx: Context<SetFeeRate>, fee_rate: u16) -> Result<()> {
-        return instructions::set_fee_rate::handler(ctx, fee_rate);
+        instructions::set_fee_rate::handler(ctx, fee_rate)
     }
 
     /// Sets the protocol fee rate for a Yevefi.
@@ -419,7 +391,7 @@ pub mod yevefi {
         ctx: Context<SetProtocolFeeRate>,
         protocol_fee_rate: u16,
     ) -> Result<()> {
-        return instructions::set_protocol_fee_rate::handler(ctx, protocol_fee_rate);
+        instructions::set_protocol_fee_rate::handler(ctx, protocol_fee_rate)
     }
 
     /// Sets the fee authority for a YevefiConfig.
@@ -430,7 +402,7 @@ pub mod yevefi {
     /// ### Authority
     /// - "fee_authority" - Set authority that can modify pool fees in the YevefiConfig
     pub fn set_fee_authority(ctx: Context<SetFeeAuthority>) -> Result<()> {
-        return instructions::set_fee_authority::handler(ctx);
+        instructions::set_fee_authority::handler(ctx)
     }
 
     /// Sets the fee authority to collect protocol fees for a YevefiConfig.
@@ -441,7 +413,7 @@ pub mod yevefi {
     pub fn set_collect_protocol_fees_authority(
         ctx: Context<SetCollectProtocolFeesAuthority>,
     ) -> Result<()> {
-        return instructions::set_collect_protocol_fees_authority::handler(ctx);
+        instructions::set_collect_protocol_fees_authority::handler(ctx)
     }
 
     /// Set the yevefi reward authority at the provided `reward_index`.
@@ -455,7 +427,7 @@ pub mod yevefi {
     ///                          index in this pool, or exceeds NUM_REWARDS, or
     ///                          all reward slots for this pool has been initialized.
     pub fn set_reward_authority(ctx: Context<SetRewardAuthority>, reward_index: u8) -> Result<()> {
-        return instructions::set_reward_authority::handler(ctx, reward_index);
+        instructions::set_reward_authority::handler(ctx, reward_index)
     }
 
     /// Set the yevefi reward authority at the provided `reward_index`.
@@ -472,7 +444,7 @@ pub mod yevefi {
         ctx: Context<SetRewardAuthorityBySuperAuthority>,
         reward_index: u8,
     ) -> Result<()> {
-        return instructions::set_reward_authority_by_super_authority::handler(ctx, reward_index);
+        instructions::set_reward_authority_by_super_authority::handler(ctx, reward_index)
     }
 
     /// Set the yevefi reward super authority for a YevefiConfig
@@ -484,7 +456,7 @@ pub mod yevefi {
     pub fn set_reward_emissions_super_authority(
         ctx: Context<SetRewardEmissionsSuperAuthority>,
     ) -> Result<()> {
-        return instructions::set_reward_emissions_super_authority::handler(ctx);
+        instructions::set_reward_emissions_super_authority::handler(ctx)
     }
 
     /// Perform a two-hop swap in this Yevefi
@@ -512,6 +484,7 @@ pub mod yevefi {
     /// - `InvalidTickSpacing` - The swap pool was initialized with tick-spacing of 0.
     /// - `InvalidIntermediaryMint` - Error if the intermediary mint between hop one and two do not equal.
     /// - `DuplicateTwoHopPool` - Error if yevefi one & two are the same pool.
+    #[allow(clippy::too_many_arguments)]
     pub fn two_hop_swap(
         ctx: Context<TwoHopSwap>,
         amount: u64,
@@ -522,7 +495,7 @@ pub mod yevefi {
         sqrt_price_limit_one: u128,
         sqrt_price_limit_two: u128,
     ) -> Result<()> {
-        return instructions::two_hop_swap::handler(
+        instructions::two_hop_swap::handler(
             ctx,
             amount,
             other_amount_threshold,
@@ -531,13 +504,13 @@ pub mod yevefi {
             a_to_b_two,
             sqrt_price_limit_one,
             sqrt_price_limit_two,
-        );
+        )
     }
 
     /// Initializes a PositionBundle account that bundles several positions.
     /// A unique token will be minted to represent the position bundle in the users wallet.
     pub fn initialize_position_bundle(ctx: Context<InitializePositionBundle>) -> Result<()> {
-        return instructions::initialize_position_bundle::handler(ctx);
+        instructions::initialize_position_bundle::handler(ctx)
     }
 
     /// Initializes a PositionBundle account that bundles several positions.
@@ -546,7 +519,7 @@ pub mod yevefi {
     pub fn initialize_position_bundle_with_metadata(
         ctx: Context<InitializePositionBundleWithMetadata>,
     ) -> Result<()> {
-        return instructions::initialize_position_bundle_with_metadata::handler(ctx);
+        instructions::initialize_position_bundle_with_metadata::handler(ctx)
     }
 
     /// Delete a PositionBundle account. Burns the position bundle token in the owner's wallet.
@@ -557,7 +530,7 @@ pub mod yevefi {
     /// ### Special Errors
     /// - `PositionBundleNotDeletable` - The provided position bundle has open positions.
     pub fn delete_position_bundle(ctx: Context<DeletePositionBundle>) -> Result<()> {
-        return instructions::delete_position_bundle::handler(ctx);
+        instructions::delete_position_bundle::handler(ctx)
     }
 
     /// Open a bundled position in a Yevefi. No new tokens are issued
@@ -582,12 +555,12 @@ pub mod yevefi {
         tick_lower_index: i32,
         tick_upper_index: i32,
     ) -> Result<()> {
-        return instructions::open_bundled_position::handler(
+        instructions::open_bundled_position::handler(
             ctx,
             bundle_index,
             tick_lower_index,
             tick_upper_index,
-        );
+        )
     }
 
     /// Close a bundled position in a Yevefi.
@@ -605,7 +578,48 @@ pub mod yevefi {
         ctx: Context<CloseBundledPosition>,
         bundle_index: u16,
     ) -> Result<()> {
-        return instructions::close_bundled_position::handler(ctx, bundle_index);
+        instructions::close_bundled_position::handler(ctx, bundle_index)
+    }
+
+    /// Open a position in a Yevefi. A unique token will be minted to represent the position
+    /// in the users wallet. Additional TokenMetadata extension is initialized to identify the token.
+    /// Mint and TokenAccount are based on Token-2022.
+    /// The position will start off with 0 liquidity.
+    ///
+    /// ### Parameters
+    /// - `tick_lower_index` - The tick specifying the lower end of the position range.
+    /// - `tick_upper_index` - The tick specifying the upper end of the position range.
+    /// - `with_token_metadata_extension` - If true, the token metadata extension will be initialized.
+    ///
+    /// #### Special Errors
+    /// - `InvalidTickIndex` - If a provided tick is out of bounds, out of order or not a multiple of
+    ///                        the tick-spacing in this pool.
+    pub fn open_position_with_token_extensions(
+        ctx: Context<OpenPositionWithTokenExtensions>,
+        tick_lower_index: i32,
+        tick_upper_index: i32,
+        with_token_metadata_extension: bool,
+    ) -> Result<()> {
+        instructions::open_position_with_token_extensions::handler(
+            ctx,
+            tick_lower_index,
+            tick_upper_index,
+            with_token_metadata_extension,
+        )
+    }
+
+    /// Close a position in a Yevefi. Burns the position token in the owner's wallet.
+    /// Mint and TokenAccount are based on Token-2022. And Mint accout will be also closed.
+    ///
+    /// ### Authority
+    /// - "position_authority" - The authority that owns the position token.
+    ///
+    /// #### Special Errors
+    /// - `ClosePositionNotEmpty` - The provided position account is not empty.
+    pub fn close_position_with_token_extensions(
+        ctx: Context<ClosePositionWithTokenExtensions>,
+    ) -> Result<()> {
+        instructions::close_position_with_token_extensions::handler(ctx)
     }
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -618,34 +632,34 @@ pub mod yevefi {
     ///
     /// ### Authority
     /// - `position_authority` - authority that owns the token corresponding to this desired position.
-    pub fn collect_fees_v2<'a, 'b, 'c, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, CollectFeesV2<'info>>,
+    pub fn collect_fees_v2<'info>(
+        ctx: Context<'_, '_, '_, 'info, CollectFeesV2<'info>>,
         remaining_accounts_info: Option<RemainingAccountsInfo>,
     ) -> Result<()> {
-        return instructions::v2::collect_fees::handler(ctx, remaining_accounts_info);
+        instructions::v2::collect_fees::handler(ctx, remaining_accounts_info)
     }
 
     /// Collect the protocol fees accrued in this Yevefi
     ///
     /// ### Authority
     /// - `collect_protocol_fees_authority` - assigned authority in the YevefiConfig that can collect protocol fees
-    pub fn collect_protocol_fees_v2<'a, 'b, 'c, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, CollectProtocolFeesV2<'info>>,
+    pub fn collect_protocol_fees_v2<'info>(
+        ctx: Context<'_, '_, '_, 'info, CollectProtocolFeesV2<'info>>,
         remaining_accounts_info: Option<RemainingAccountsInfo>,
     ) -> Result<()> {
-        return instructions::v2::collect_protocol_fees::handler(ctx, remaining_accounts_info);
+        instructions::v2::collect_protocol_fees::handler(ctx, remaining_accounts_info)
     }
 
     /// Collect rewards accrued for this position.
     ///
     /// ### Authority
     /// - `position_authority` - authority that owns the token corresponding to this desired position.
-    pub fn collect_reward_v2<'a, 'b, 'c, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, CollectRewardV2<'info>>,
+    pub fn collect_reward_v2<'info>(
+        ctx: Context<'_, '_, '_, 'info, CollectRewardV2<'info>>,
         reward_index: u8,
         remaining_accounts_info: Option<RemainingAccountsInfo>,
     ) -> Result<()> {
-        return instructions::v2::collect_reward::handler(ctx, reward_index, remaining_accounts_info);
+        instructions::v2::collect_reward::handler(ctx, reward_index, remaining_accounts_info)
     }
 
     /// Withdraw liquidity from a position in the Yevefi. This call also updates the position's accrued fees and rewards.
@@ -662,20 +676,20 @@ pub mod yevefi {
     /// - `LiquidityZero` - Provided liquidity amount is zero.
     /// - `LiquidityTooHigh` - Provided liquidity exceeds u128::max.
     /// - `TokenMinSubceeded` - The required token to perform this operation subceeds the user defined amount.
-    pub fn decrease_liquidity_v2<'a, 'b, 'c, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidityV2<'info>>,
+    pub fn decrease_liquidity_v2<'info>(
+        ctx: Context<'_, '_, '_, 'info, ModifyLiquidityV2<'info>>,
         liquidity_amount: u128,
         token_min_a: u64,
         token_min_b: u64,
         remaining_accounts_info: Option<RemainingAccountsInfo>,
     ) -> Result<()> {
-        return instructions::v2::decrease_liquidity::handler(
+        instructions::v2::decrease_liquidity::handler(
             ctx,
             liquidity_amount,
             token_min_a,
             token_min_b,
             remaining_accounts_info,
-        );
+        )
     }
 
     /// Add liquidity to a position in the Yevefi. This call also updates the position's accrued fees and rewards.
@@ -692,20 +706,20 @@ pub mod yevefi {
     /// - `LiquidityZero` - Provided liquidity amount is zero.
     /// - `LiquidityTooHigh` - Provided liquidity exceeds u128::max.
     /// - `TokenMaxExceeded` - The required token to perform this operation exceeds the user defined amount.
-    pub fn increase_liquidity_v2<'a, 'b, 'c, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, ModifyLiquidityV2<'info>>,
+    pub fn increase_liquidity_v2<'info>(
+        ctx: Context<'_, '_, '_, 'info, ModifyLiquidityV2<'info>>,
         liquidity_amount: u128,
         token_max_a: u64,
         token_max_b: u64,
         remaining_accounts_info: Option<RemainingAccountsInfo>,
     ) -> Result<()> {
-        return instructions::v2::increase_liquidity::handler(
+        instructions::v2::increase_liquidity::handler(
             ctx,
             liquidity_amount,
             token_max_a,
             token_max_b,
             remaining_accounts_info,
-        );
+        )
     }
 
     /// Initializes a Yevefi account.
@@ -725,11 +739,7 @@ pub mod yevefi {
         tick_spacing: u16,
         initial_sqrt_price: u128,
     ) -> Result<()> {
-        return instructions::v2::initialize_pool::handler(
-            ctx,
-            tick_spacing,
-            initial_sqrt_price,
-        );
+        instructions::v2::initialize_pool::handler(ctx, tick_spacing, initial_sqrt_price)
     }
 
     /// Initialize reward for a Yevefi. A pool can only support up to a set number of rewards.
@@ -746,7 +756,7 @@ pub mod yevefi {
     ///                          index in this pool, or exceeds NUM_REWARDS, or
     ///                          all reward slots for this pool has been initialized.
     pub fn initialize_reward_v2(ctx: Context<InitializeRewardV2>, reward_index: u8) -> Result<()> {
-        return instructions::v2::initialize_reward::handler(ctx, reward_index);
+        instructions::v2::initialize_reward::handler(ctx, reward_index)
     }
 
     /// Set the reward emissions for a reward in a Yevefi.
@@ -771,11 +781,7 @@ pub mod yevefi {
         reward_index: u8,
         emissions_per_second_x64: u128,
     ) -> Result<()> {
-        return instructions::v2::set_reward_emissions::handler(
-            ctx,
-            reward_index,
-            emissions_per_second_x64,
-        );
+        instructions::v2::set_reward_emissions::handler(ctx, reward_index, emissions_per_second_x64)
     }
 
     /// Perform a swap in this Yevefi
@@ -799,8 +805,8 @@ pub mod yevefi {
     /// - `TickArrayIndexOutofBounds` - The swap loop attempted to access an invalid array index during tick crossing.
     /// - `LiquidityOverflow` - Liquidity value overflowed 128bits during tick crossing.
     /// - `InvalidTickSpacing` - The swap pool was initialized with tick-spacing of 0.
-    pub fn swap_v2<'a, 'b, 'c, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, SwapV2<'info>>,
+    pub fn swap_v2<'info>(
+        ctx: Context<'_, '_, '_, 'info, SwapV2<'info>>,
         amount: u64,
         other_amount_threshold: u64,
         sqrt_price_limit: u128,
@@ -808,7 +814,7 @@ pub mod yevefi {
         a_to_b: bool,
         remaining_accounts_info: Option<RemainingAccountsInfo>,
     ) -> Result<()> {
-        return instructions::v2::swap::handler(
+        instructions::v2::swap::handler(
             ctx,
             amount,
             other_amount_threshold,
@@ -816,7 +822,7 @@ pub mod yevefi {
             amount_specified_is_input,
             a_to_b,
             remaining_accounts_info,
-        );
+        )
     }
 
     /// Perform a two-hop swap in this Yevefi
@@ -844,8 +850,9 @@ pub mod yevefi {
     /// - `InvalidTickSpacing` - The swap pool was initialized with tick-spacing of 0.
     /// - `InvalidIntermediaryMint` - Error if the intermediary mint between hop one and two do not equal.
     /// - `DuplicateTwoHopPool` - Error if yevefi one & two are the same pool.
-    pub fn two_hop_swap_v2<'a, 'b, 'c, 'info>(
-        ctx: Context<'a, 'b, 'c, 'info, TwoHopSwapV2<'info>>,
+    #[allow(clippy::too_many_arguments)]
+    pub fn two_hop_swap_v2<'info>(
+        ctx: Context<'_, '_, '_, 'info, TwoHopSwapV2<'info>>,
         amount: u64,
         other_amount_threshold: u64,
         amount_specified_is_input: bool,
@@ -855,7 +862,7 @@ pub mod yevefi {
         sqrt_price_limit_two: u128,
         remaining_accounts_info: Option<RemainingAccountsInfo>,
     ) -> Result<()> {
-        return instructions::v2::two_hop_swap::handler(
+        instructions::v2::two_hop_swap::handler(
             ctx,
             amount,
             other_amount_threshold,
@@ -865,26 +872,26 @@ pub mod yevefi {
             sqrt_price_limit_one,
             sqrt_price_limit_two,
             remaining_accounts_info,
-        );
+        )
     }
 
     pub fn initialize_config_extension(ctx: Context<InitializeConfigExtension>) -> Result<()> {
-        return instructions::v2::initialize_config_extension::handler(ctx);
+        instructions::v2::initialize_config_extension::handler(ctx)
     }
 
     pub fn set_config_extension_authority(ctx: Context<SetConfigExtensionAuthority>) -> Result<()> {
-        return instructions::v2::set_config_extension_authority::handler(ctx);
+        instructions::v2::set_config_extension_authority::handler(ctx)
     }
 
     pub fn set_token_badge_authority(ctx: Context<SetTokenBadgeAuthority>) -> Result<()> {
-        return instructions::v2::set_token_badge_authority::handler(ctx);
+        instructions::v2::set_token_badge_authority::handler(ctx)
     }
 
     pub fn initialize_token_badge(ctx: Context<InitializeTokenBadge>) -> Result<()> {
-        return instructions::v2::initialize_token_badge::handler(ctx);
+        instructions::v2::initialize_token_badge::handler(ctx)
     }
 
     pub fn delete_token_badge(ctx: Context<DeleteTokenBadge>) -> Result<()> {
-        return instructions::v2::delete_token_badge::handler(ctx);
+        instructions::v2::delete_token_badge::handler(ctx)
     }
 }

@@ -126,7 +126,7 @@ pub enum ErrorCode {
 
     #[msg("Unable to call transfer hook without extra accounts")]
     NoExtraAccountsForTransferHook, // 0x17a2 (6050)
-    
+
     #[msg("Output and input amount mismatch")]
     IntermediateTokenAmountMismatch, // 0x17a3 (6051)
 
@@ -135,6 +135,17 @@ pub enum ErrorCode {
 
     #[msg("Same accounts type is provided more than once")]
     RemainingAccountsDuplicatedAccountsType, // 0x17a5 (6053)
+
+    #[msg("This yevefi only supports full-range positions")]
+    FullRangeOnlyPool, // 0x17a6 (6054)
+
+    #[msg("Too many supplemental tick arrays provided")]
+    TooManySupplementalTickArrays, // 0x17a7 (6055)
+    #[msg("TickArray account for different yevefi provided")]
+    DifferentYevefiTickArrayAccount, // 0x17a8 (6056)
+
+    #[msg("Trade resulted in partial fill")]
+    PartialFillError, // 0x17a9 (6057)
 }
 
 impl From<TryFromIntError> for ErrorCode {

@@ -15,10 +15,10 @@ pub struct SetRewardEmissionsSuperAuthority<'info> {
 }
 
 pub fn handler(ctx: Context<SetRewardEmissionsSuperAuthority>) -> Result<()> {
-    Ok(ctx
-        .accounts
+    ctx.accounts
         .yevefis_config
         .update_reward_emissions_super_authority(
             ctx.accounts.new_reward_emissions_super_authority.key(),
-        ))
+        );
+    Ok(())
 }

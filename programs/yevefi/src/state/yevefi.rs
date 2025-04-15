@@ -101,6 +101,7 @@ impl Yevefi {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn initialize(
         &mut self,
         yevefis_config: &Account<YevefisConfig>,
@@ -117,7 +118,7 @@ impl Yevefi {
             return Err(ErrorCode::InvalidTokenMintOrder.into());
         }
 
-        if sqrt_price < MIN_SQRT_PRICE_X64 || sqrt_price > MAX_SQRT_PRICE_X64 {
+        if !(MIN_SQRT_PRICE_X64..=MAX_SQRT_PRICE_X64).contains(&sqrt_price) {
             return Err(ErrorCode::SqrtPriceOutOfBounds.into());
         }
 
@@ -146,8 +147,7 @@ impl Yevefi {
         self.fee_growth_global_b = 0;
 
         self.reward_infos =
-            [YevefiRewardInfo::new(yevefis_config.reward_emissions_super_authority);
-                NUM_REWARDS];
+            [YevefiRewardInfo::new(yevefis_config.reward_emissions_super_authority); NUM_REWARDS];
 
         Ok(())
     }
@@ -222,6 +222,7 @@ impl Yevefi {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update_after_swap(
         &mut self,
         liquidity: u128,
@@ -327,14 +328,14 @@ pub struct YevefiBumps {
 #[test]
 fn test_yevefi_reward_info_not_initialized() {
     let reward_info = YevefiRewardInfo::default();
-    assert_eq!(reward_info.initialized(), false);
+    assert!(!reward_info.initialized());
 }
 
 #[test]
 fn test_yevefi_reward_info_initialized() {
     let reward_info = &mut YevefiRewardInfo::default();
     reward_info.mint = Pubkey::new_unique();
-    assert_eq!(reward_info.initialized(), true);
+    assert!(reward_info.initialized());
 }
 
 #[cfg(test)]
@@ -433,5 +434,151 @@ pub mod yevefi_builder {
                 ..Default::default()
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod data_layout_tests {
+    use anchor_lang::Discriminator;
+
+    use super::*;
+
+    #[test]
+    fn test_yevefi_data_layout() {
+        let yevefi_yevefis_config = Pubkey::new_unique();
+        let yevefi_bump = 0x12u8;
+        let yevefi_tick_spacing = 0x1234u16;
+        let yevefi_tick_spacing_seed = [0x56u8, 0x78u8];
+        let yevefi_fee_rate = 0x9abcu16;
+        let yevefi_protocol_fee_rate = 0xdef0u16;
+        let yevefi_liquidity = 0x11002233445566778899aabbccddeeffu128;
+        let yevefi_sqrt_price = 0x11220033445566778899aabbccddeeffu128;
+        let yevefi_tick_current_index = 0x12345678i32;
+        let yevefi_protocol_fee_owed_a = 0x1122334455667788u64;
+        let yevefi_protocol_fee_owed_b = 0x99aabbccddeeff00u64;
+        let yevefi_token_mint_a = Pubkey::new_unique();
+        let yevefi_token_vault_a = Pubkey::new_unique();
+        let yevefi_fee_growth_global_a = 0x11223300445566778899aabbccddeeffu128;
+        let yevefi_token_mint_b = Pubkey::new_unique();
+        let yevefi_token_vault_b = Pubkey::new_unique();
+        let yevefi_fee_growth_global_b = 0x11223344005566778899aabbccddeeffu128;
+        let yevefi_reward_last_updated_timestamp = 0x1234567890abcdefu64;
+
+        let reward_info_mint = Pubkey::new_unique();
+        let reward_info_vault = Pubkey::new_unique();
+        let reward_info_authority = Pubkey::new_unique();
+        let reward_info_emissions_per_second_x64 = 0x1122334455667788u128;
+        let reward_info_growth_global_x64 = 0x99aabbccddeeff00u128;
+
+        // manually build the expected data layout
+        let mut reward_info_data = [0u8; 128];
+        let mut offset = 0;
+        reward_info_data[offset..offset + 32].copy_from_slice(&reward_info_mint.to_bytes());
+        offset += 32;
+        reward_info_data[offset..offset + 32].copy_from_slice(&reward_info_vault.to_bytes());
+        offset += 32;
+        reward_info_data[offset..offset + 32].copy_from_slice(&reward_info_authority.to_bytes());
+        offset += 32;
+        reward_info_data[offset..offset + 16]
+            .copy_from_slice(&reward_info_emissions_per_second_x64.to_le_bytes());
+        offset += 16;
+        reward_info_data[offset..offset + 16]
+            .copy_from_slice(&reward_info_growth_global_x64.to_le_bytes());
+        offset += 16;
+        assert_eq!(offset, reward_info_data.len());
+
+        let mut yevefi_data = [0u8; Yevefi::LEN];
+        let mut offset = 0;
+        yevefi_data[offset..offset + 8].copy_from_slice(&Yevefi::discriminator());
+        offset += 8;
+        yevefi_data[offset..offset + 32].copy_from_slice(&yevefi_yevefis_config.to_bytes());
+        offset += 32;
+        yevefi_data[offset..offset + 1].copy_from_slice(&yevefi_bump.to_le_bytes());
+        offset += 1;
+        yevefi_data[offset..offset + 2].copy_from_slice(&yevefi_tick_spacing.to_le_bytes());
+        offset += 2;
+        yevefi_data[offset..offset + 2].copy_from_slice(&yevefi_tick_spacing_seed);
+        offset += 2;
+        yevefi_data[offset..offset + 2].copy_from_slice(&yevefi_fee_rate.to_le_bytes());
+        offset += 2;
+        yevefi_data[offset..offset + 2].copy_from_slice(&yevefi_protocol_fee_rate.to_le_bytes());
+        offset += 2;
+        yevefi_data[offset..offset + 16].copy_from_slice(&yevefi_liquidity.to_le_bytes());
+        offset += 16;
+        yevefi_data[offset..offset + 16].copy_from_slice(&yevefi_sqrt_price.to_le_bytes());
+        offset += 16;
+        yevefi_data[offset..offset + 4].copy_from_slice(&yevefi_tick_current_index.to_le_bytes());
+        offset += 4;
+        yevefi_data[offset..offset + 8].copy_from_slice(&yevefi_protocol_fee_owed_a.to_le_bytes());
+        offset += 8;
+        yevefi_data[offset..offset + 8].copy_from_slice(&yevefi_protocol_fee_owed_b.to_le_bytes());
+        offset += 8;
+        yevefi_data[offset..offset + 32].copy_from_slice(&yevefi_token_mint_a.to_bytes());
+        offset += 32;
+        yevefi_data[offset..offset + 32].copy_from_slice(&yevefi_token_vault_a.to_bytes());
+        offset += 32;
+        yevefi_data[offset..offset + 16].copy_from_slice(&yevefi_fee_growth_global_a.to_le_bytes());
+        offset += 16;
+        yevefi_data[offset..offset + 32].copy_from_slice(&yevefi_token_mint_b.to_bytes());
+        offset += 32;
+        yevefi_data[offset..offset + 32].copy_from_slice(&yevefi_token_vault_b.to_bytes());
+        offset += 32;
+        yevefi_data[offset..offset + 16].copy_from_slice(&yevefi_fee_growth_global_b.to_le_bytes());
+        offset += 16;
+        yevefi_data[offset..offset + 8]
+            .copy_from_slice(&yevefi_reward_last_updated_timestamp.to_le_bytes());
+        offset += 8;
+        for _ in 0..NUM_REWARDS {
+            yevefi_data[offset..offset + reward_info_data.len()].copy_from_slice(&reward_info_data);
+            offset += reward_info_data.len();
+        }
+        assert_eq!(offset, yevefi_data.len());
+
+        // deserialize
+        let deserialized = Yevefi::try_deserialize(&mut yevefi_data.as_ref()).unwrap();
+
+        assert_eq!(deserialized.yevefis_config, yevefi_yevefis_config);
+        assert_eq!(deserialized.yevefi_bump, [yevefi_bump]);
+        assert_eq!(deserialized.tick_spacing, yevefi_tick_spacing);
+        assert_eq!(deserialized.tick_spacing_seed, yevefi_tick_spacing_seed);
+        assert_eq!(deserialized.fee_rate, yevefi_fee_rate);
+        assert_eq!(deserialized.protocol_fee_rate, yevefi_protocol_fee_rate);
+        assert_eq!(deserialized.liquidity, yevefi_liquidity);
+        assert_eq!(deserialized.sqrt_price, yevefi_sqrt_price);
+        assert_eq!(deserialized.tick_current_index, yevefi_tick_current_index);
+        assert_eq!(deserialized.protocol_fee_owed_a, yevefi_protocol_fee_owed_a);
+        assert_eq!(deserialized.protocol_fee_owed_b, yevefi_protocol_fee_owed_b);
+        assert_eq!(deserialized.token_mint_a, yevefi_token_mint_a);
+        assert_eq!(deserialized.token_vault_a, yevefi_token_vault_a);
+        assert_eq!(deserialized.fee_growth_global_a, yevefi_fee_growth_global_a);
+        assert_eq!(deserialized.token_mint_b, yevefi_token_mint_b);
+        assert_eq!(deserialized.token_vault_b, yevefi_token_vault_b);
+        assert_eq!(deserialized.fee_growth_global_b, yevefi_fee_growth_global_b);
+        assert_eq!(
+            deserialized.reward_last_updated_timestamp,
+            yevefi_reward_last_updated_timestamp
+        );
+        for i in 0..NUM_REWARDS {
+            assert_eq!(deserialized.reward_infos[i].mint, reward_info_mint);
+            assert_eq!(deserialized.reward_infos[i].vault, reward_info_vault);
+            assert_eq!(
+                deserialized.reward_infos[i].authority,
+                reward_info_authority
+            );
+            assert_eq!(
+                deserialized.reward_infos[i].emissions_per_second_x64,
+                reward_info_emissions_per_second_x64
+            );
+            assert_eq!(
+                deserialized.reward_infos[i].growth_global_x64,
+                reward_info_growth_global_x64
+            );
+        }
+
+        // serialize
+        let mut serialized = Vec::new();
+        deserialized.try_serialize(&mut serialized).unwrap();
+
+        assert_eq!(serialized.as_slice(), yevefi_data.as_ref());
     }
 }

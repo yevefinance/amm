@@ -5,6 +5,7 @@ use crate::{manager::swap_manager::PostSwapUpdate, state::Yevefi};
 
 use super::{transfer_from_owner_to_vault, transfer_from_vault_to_owner};
 
+#[allow(clippy::too_many_arguments)]
 pub fn update_and_swap_yevefi<'info>(
     yevefi: &mut Account<'info, Yevefi>,
     token_authority: &Signer<'info>,
@@ -42,6 +43,7 @@ pub fn update_and_swap_yevefi<'info>(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn perform_swap<'info>(
     yevefi: &Account<'info, Yevefi>,
     token_authority: &Signer<'info>,

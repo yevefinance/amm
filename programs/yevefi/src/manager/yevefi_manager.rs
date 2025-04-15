@@ -10,7 +10,7 @@ pub fn next_yevefi_reward_infos(
 ) -> Result<[YevefiRewardInfo; NUM_REWARDS], ErrorCode> {
     let curr_timestamp = yevefi.reward_last_updated_timestamp;
     if next_timestamp < curr_timestamp {
-        return Err(ErrorCode::InvalidTimestamp.into());
+        return Err(ErrorCode::InvalidTimestamp);
     }
 
     // No-op if no liquidity or no change in timestamp
@@ -21,11 +21,10 @@ pub fn next_yevefi_reward_infos(
     // Calculate new global reward growth
     let mut next_reward_infos = yevefi.reward_infos;
     let time_delta = u128::from(next_timestamp - curr_timestamp);
-    for i in 0..NUM_REWARDS {
-        if !next_reward_infos[i].initialized() {
+    for reward_info in next_reward_infos.iter_mut() {
+        if !reward_info.initialized() {
             continue;
         }
-        let reward_info = &mut next_reward_infos[i];
 
         // Calculate the new reward growth delta.
         // If the calculation overflows, set the delta value to zero.
@@ -53,8 +52,7 @@ pub fn next_yevefi_liquidity(
     tick_lower_index: i32,
     liquidity_delta: i128,
 ) -> Result<u128, ErrorCode> {
-    if yevefi.tick_current_index < tick_upper_index
-        && yevefi.tick_current_index >= tick_lower_index
+    if yevefi.tick_current_index < tick_upper_index && yevefi.tick_current_index >= tick_lower_index
     {
         add_liquidity_delta(yevefi.liquidity, liquidity_delta)
     } else {

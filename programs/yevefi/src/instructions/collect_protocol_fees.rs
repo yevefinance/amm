@@ -47,5 +47,6 @@ pub fn handler(ctx: Context<CollectProtocolFees>) -> Result<()> {
         yevefi.protocol_fee_owed_b,
     )?;
 
-    Ok(ctx.accounts.yevefi.reset_protocol_fees_owed())
+    ctx.accounts.yevefi.reset_protocol_fees_owed();
+    Ok(())
 }

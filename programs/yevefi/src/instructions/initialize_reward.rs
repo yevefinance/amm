@@ -34,9 +34,9 @@ pub struct InitializeReward<'info> {
 pub fn handler(ctx: Context<InitializeReward>, reward_index: u8) -> Result<()> {
     let yevefi = &mut ctx.accounts.yevefi;
 
-    Ok(yevefi.initialize_reward(
+    yevefi.initialize_reward(
         reward_index as usize,
         ctx.accounts.reward_mint.key(),
         ctx.accounts.reward_vault.key(),
-    )?)
+    )
 }
